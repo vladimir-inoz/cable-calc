@@ -14,21 +14,21 @@ def calcOrientCos(F):
 #расчет параметров кабеля
 
 #диаметр кабеля (метры)
-Dk = 0.01
+Dk = 0.05
 
 #нормальный и касательный гидродинамические коэффициенты кабеля
 Cnorm = 1.0
 Ctau = 1.0
 
 #число сегментов
-nSegments = 50
+nSegments = 10
 
-#длина сегмента кабеля
-l = 1.0
-
-def cable(Vx, Vz, Px, Py, Pz):
+def cable(settings):
     #результат
-    result['name'] = 'cable'
+    result = dict()
+
+    #длина сегмента
+    len = settings['segment_len']
     
     #курсовой угол корабля (радианы)
     psi = 0
@@ -47,14 +47,17 @@ def cable(Vx, Vz, Px, Py, Pz):
     Sa = 0.666
 
     #Скорость движения ТПС отностиельно воды
-    V = np.matrix([[Vx],[0],[Vz]])
+    vx = settings['vx']
+    vy = settings['vy']
+    vz = settings['vz']
+    V = np.matrix([[vx],[vy],[vz]])
 
     #матрица В
     B = np.matrix([[math.cos(psi), -math.sin(psi)],
     [math.sin(psi), math.cos(psi)]])
 
     #
-    Va = -B.transpose() * np.matrix([[Vx],[Vz]])
+    Va = -B.transpose() * np.matrix([[vx],[vz]])
     Vxa = Va.item((0,0))
     Vza = Va.item((1,0))
 
@@ -66,10 +69,9 @@ def cable(Vx, Vz, Px, Py, Pz):
     R1 = -np.matrix([[tR1.item(0,0)],[0],[tR1.item(1,0)]])
 
     #силы, развиваемые ДРК ТПА
-    Px1 = Px
-    Py1 = Py
-    Pz1 = Pz
-    P1 = np.matrix([[Px1],[Py1],[Pz1]])
+    P1 = np.matrix([[settings['Fx']], \
+                    [settings['Fy']], \
+                    [settings['Fz']]])
 
     #остаточная плавучесть ТПА
     G1 = np.matrix([[0],[0],[0]])
@@ -99,14 +101,14 @@ def cable(Vx, Vz, Px, Py, Pz):
         Fprev = F[i-1]
         Gprev = np.matrix([[0],[0],[0]])
         
-        Rnx = Cnorm * l * Dk * ro * \
-              (Vx * math.sqrt(1-Cphix ** 2)) ** 2 / 2
-        Rnz = Cnorm * l * Dk * ro * \
-              (Vx * math.sqrt(1-Cphiz ** 2)) ** 2 / 2
-        Rtaux = Ctau * Cnorm * l * Dk * math.pi * \
-                np.sign(Cphix)*(Vx*Cphix)**2/2
-        Rtauz = Ctau * Cnorm * l * Dk * math.pi * \
-                np.sign(Cphiz)*(Vz*Cphiz)**2/2
+        Rnx = Cnorm * len * Dk * ro * \
+              (vx * math.sqrt(1-Cphix ** 2)) ** 2 / 2
+        Rnz = Cnorm * len * Dk * ro * \
+              (vx * math.sqrt(1-Cphiz ** 2)) ** 2 / 2
+        Rtaux = Ctau * Cnorm * len * Dk * math.pi * \
+                np.sign(Cphix)*(vx*Cphix)**2/2
+        Rtauz = Ctau * Cnorm * len * Dk * math.pi * \
+                np.sign(Cphiz)*(vz*Cphiz)**2/2
 
         Rprev = np.matrix([[Rnx],[Rtaux],[Rnz],[Rtauz]])
 
@@ -140,21 +142,26 @@ def cable(Vx, Vz, Px, Py, Pz):
     Fsums = np.matrix([[math.sqrt(Fsum[0])],
                        [math.sqrt(Fsum[1])],
                        [math.sqrt(Fsum[2])]])
+    result['fsum'] = Fsums
 
     #рассчитываем координаты шарниров
     #в системе координат НПА
     #первый шарнир в нулях
     r = [np.matrix([[0],[0],[0]])]
     for i in range(1, nSegments):
-        rnew = r[i-1] - l * C[i]
+        rnew = r[i-1] + len * C[i]
         r.append(rnew)
+
+    result['joints'] = r
 
     #рассчитываем координаты шарниров
     #в системе координат носителя
     rnos=[]
     for point in r:
         rnos.append(r[-1] - point)
-    return rnos
+    result['joints-nos'] = rnos
+
+    return result
 
 #рисование кабеля на графике
 def print_cable(joints):
@@ -162,8 +169,9 @@ def print_cable(joints):
     ys = []
     for i in joints:
         xs.append(i.item(0,0))
-        ys.append(i.item(2,0))
-    plt.plot(xs,ys)
+        ys.append(i.item(1,0))
+    plt.plot(xs,ys,'bo')
+    plt.plot(xs,ys,'k')
 
 #нахождение упоров движителей НПА
 #для определенного положения (X,Y,Z)
@@ -187,26 +195,18 @@ def calculate_forces(Vx,Fxmax,Fymax,Fzmax,x0,y0,z0):
         force_func, [0,0,0], method = "BFGS")
     print(res)
     #рисуем получившийся кабель
-    
-        
-    
-
-def functional(Vx,Fxmin,Fxmax,Fzmin,Fzmax,x0,y0,z0):
-    for Fx in range(Fxmin,Fxmax):
-        for Fz in range(Fzmin,Fzmax):
-            [xs,ys] = cable(Vx,0,Fx,Fz)
-            x=xs[-1]
-            y=ys[-1]
-            z=0
-            J = (x-x0)**2 + (y-y0)**2 + (z-z0)**2
-            print(J)
 
 axes = plt.gca()
-axes.set_xlim([0,100])
-axes.set_ylim([0,100])
+axes.set_xlim([-100,50])
+axes.set_ylim([-100,5])
 
-vx = 1.0
-joints = cable(vx, 0, 100, 0, 0)
-print_cable(joints)
+inp = dict(vx=3.0,vy=0,vz=0,Fx=200,Fy=-200,Fz=0,segment_len=5.0)
+for x in range(0,12):
+    inp['vx'] = x*0.25
+    print_cable(cable(inp)['joints'])
+
+#vx = 1.0
+#joints = cable(vx, 0, 100, 0, 0)
+#print_cable(joints)
 
 plt.show()
