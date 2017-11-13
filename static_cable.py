@@ -2,6 +2,7 @@ import numpy as np
 import math
 import pylab
 import matplotlib.pyplot as plt
+from scipy import optimize
 
 #расчет направляющих косинусов звена по силе
 def calcOrientCos(F):
@@ -23,9 +24,12 @@ Ctau = 1.0
 nSegments = 50
 
 #длина сегмента кабеля
-l = 1
+l = 1.0
 
 def cable(Vx, Vz, Px, Py, Pz):
+    #результат
+    result['name'] = 'cable'
+    
     #курсовой угол корабля (радианы)
     psi = 0
 
@@ -57,7 +61,6 @@ def cable(Vx, Vz, Px, Py, Pz):
     #силы, действующие на аппарат
     Fxa = ro * Cxa * Sa * Vxa * abs(Vxa) / 2
     Fza = ro * Cza * Sa * Vza * abs(Vza) / 2
-    print(Fxa)
 
     tR1 = -B * np.matrix([[Fxa],[Fza]])
     R1 = -np.matrix([[tR1.item(0,0)],[0],[tR1.item(1,0)]])
@@ -131,9 +134,9 @@ def cable(Vx, Vz, Px, Py, Pz):
     #считаем силу на лебедке корабля
     Fsum=[0,0,0]
     for force in F:
-        Fsum[0]+=Force.item(0,0) ** 2
-        Fsum[1]+=Force.item(1,0) ** 2
-        Fsum[2]+=Force.item(2,0) ** 2
+        Fsum[0]+=force.item(0,0) ** 2
+        Fsum[1]+=force.item(1,0) ** 2
+        Fsum[2]+=force.item(2,0) ** 2
     Fsums = np.matrix([[math.sqrt(Fsum[0])],
                        [math.sqrt(Fsum[1])],
                        [math.sqrt(Fsum[2])]])
@@ -149,10 +152,8 @@ def cable(Vx, Vz, Px, Py, Pz):
     #рассчитываем координаты шарниров
     #в системе координат носителя
     rnos=[]
-    for i in range(0, nSegments):
-        rnos_new = r[-1] - r[i]
-        rnos.append(rnos_new)
-    
+    for point in r:
+        rnos.append(r[-1] - point)
     return rnos
 
 #рисование кабеля на графике
@@ -167,10 +168,26 @@ def print_cable(joints):
 #нахождение упоров движителей НПА
 #для определенного положения (X,Y,Z)
 #делается путем минимизации функционала
-#def calculate_forces(Vx,Fxmax,Fymax,Fzmax,x0,y0,z0):
+def calculate_forces(Vx,Fxmax,Fymax,Fzmax,x0,y0,z0):
     #минимизируемый функционал
-#    def force_func(x):
-#        return (x[0]-x0)**2 + (x[1]-y0)**2 + (x[2]-z0)**2
+    #входные параметры - упоры движителей аппарата
+    #выходной - квадрат дистанции от заданной точки
+    def force_func(f):
+        joints = cable(Vx, 0, f[0], f[1], f[2])
+        print(joints)
+        return (joints[-1].item(0,0)-x0)**2 + \
+               (joints[-1].item(1,0)-y0)**2 + \
+               (joints[-1].item(2,0)-z0)**2
+    #осуществляем минимизацию
+    #методом BFGS
+    #http://www.scipy-lectures.org/advanced/mathematical_optimization/
+    #у нас нет якобиана и градиента
+    max_force = math.sqrt(Fxmax**2 + Fymax**2 + Fzmax**2)
+    res = optimize.minimize( \
+        force_func, [0,0,0], method = "BFGS")
+    print(res)
+    #рисуем получившийся кабель
+    
         
     
 
@@ -188,8 +205,8 @@ axes = plt.gca()
 axes.set_xlim([0,100])
 axes.set_ylim([0,100])
 
-for i in range(0,5):
-    joints = cable(i/10, 0, 100, 100, 0)
-    print_cable(joints)
+vx = 1.0
+joints = cable(vx, 0, 100, 0, 0)
+print_cable(joints)
 
 plt.show()
