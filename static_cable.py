@@ -167,6 +167,10 @@ def cable(settings):
     r = [np.matrix([[0],[0],[0]])]
     for i in range(1, nseg):
         rnew = r[i-1] + len * C[i]
+        #кабель не может подняться выше уровня воды
+        #по координате Y
+        if rnew.item(1,0) > 0:
+            rnew[[1],[0]] = 0
         r.append(rnew)
 
     result['joints'] = r
@@ -258,38 +262,29 @@ def calculate_workzone(vx,Fxmax,Fymax,Fzmax,segment_len,segment_count):
     n = 100
     #длина кабеля
     cable_len = segment_len * segment_count;
-    #делаем полукруг
-    phi = np.linspace(math.pi,2*math.pi,n)
-    for x in phi:
-        radius.append(cable_len)
-        xs.append(math.cos(x) * cable_len)
-        ys.append(math.sin(x) * cable_len)
-    #теперь просчитываем силы на ДРК на каждой точке полукруга
-    #если силы слишком велики, приближаем точку к носителю
-    for i in range(0,n):
-            res = calculate_forces(vx,Fxmax,Fymax,Fzmax,xs[i],ys[i],0, \
-                                   segment_len,segment_count)
-            #не удалось найти такие силы, чтобы удержать аппарат в точке
-            if (res is None):
-                #делаем поиск путем деления пополам
-                left = 0
-                right = cable_len
-                while (True):
-                    radius[i] = (left+right)/2
-                    print("phi = ",i," radius = ", radius[i], \
-                          " left = ",left," right = ",right)
-                    xs[i] = math.cos(phi[i]) * radius[i]
-                    ys[i] = math.sin(phi[i]) * radius[i]
-                    res = calculate_forces(vx,Fxmax,Fymax,Fzmax,xs[i],ys[i],0, \
-                                       segment_len,segment_count)
-                    if (res is None):
-                        right = (left + right)/2
-                    else:
-                        left = (left + right)/2
-                    if (right - left < 0.1):
-                        break
+    #делаем все возможные упоры движителей и считаем координаты ТПА
+    alpha = np.linspace(0,2*math.pi,360*4)
+    Fmax = math.sqrt(Fxmax**2 + Fymax**2 + Fzmax**2)
+    for a in alpha:
+        fx = Fmax * math.sin(a)
+        fy = Fmax * math.cos(a)
+        inp = dict(vx = vx, \
+                vy = 0, \
+                vz = 0, \
+                Fx = fx, \
+                Fy = fy, \
+                Fz = 0, \
+                segment_len = segment_len, \
+                segment_count = segment_count)
+        npa_x = cable(inp)['joints'][-1].item(0,0)
+        npa_y = cable(inp)['joints'][-1].item(1,0)
+        xs.append(npa_x)
+        ys.append(npa_y)
         
-    plt.plot(xs,ys,'k')
-    plt.show()
+    plt.plot(xs,ys)
 
-calculate_workzone(1,10,10,10,1,10)
+calculate_workzone(1.9,500,800,800,1,10)
+calculate_workzone(1.8,500,800,800,1,10)
+calculate_workzone(1.7,500,800,800,1,10)
+calculate_workzone(1.6,500,800,800,1,10)
+plt.show()
