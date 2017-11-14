@@ -20,15 +20,14 @@ Dk = 0.05
 Cnorm = 1.0
 Ctau = 1.0
 
-#число сегментов
-nSegments = 20
-
 def cable(settings):
     #результат
     result = dict()
 
     #длина сегмента
     len = settings['segment_len']
+    #число сегментов
+    nseg = settings['segment_count']
     
     #курсовой угол корабля (радианы)
     psi = 0
@@ -69,6 +68,7 @@ def cable(settings):
     R1 = -np.matrix([[tR1.item(0,0)],[0],[tR1.item(1,0)]])
 
     #силы, развиваемые ДРК ТПА
+    result['input'] = settings
     P1 = np.matrix([[settings['Fx']], \
                     [settings['Fy']], \
                     [settings['Fz']]])
@@ -94,7 +94,7 @@ def cable(settings):
     Ft= np.matrix([[0],[0],[0]])
 
     #пересчитываем силы для всех сегментов
-    for i in range(1, nSegments):
+    for i in range(1, nseg):
         Cphix = C[i-1].item(0,0)
         Cphiy = C[i-1].item(1,0)
         Cphiz = C[i-1].item(2,0)
@@ -159,13 +159,13 @@ def cable(settings):
     Fsums = np.matrix([[math.sqrt(Fsum[0])],
                        [math.sqrt(Fsum[1])],
                        [math.sqrt(Fsum[2])]])
-    result['fsum'] = Fsums
+    result['f_winch'] = Fsums
 
     #рассчитываем координаты шарниров
     #в системе координат НПА
     #первый шарнир в нулях
     r = [np.matrix([[0],[0],[0]])]
-    for i in range(1, nSegments):
+    for i in range(1, nseg):
         rnew = r[i-1] + len * C[i]
         r.append(rnew)
 
@@ -211,7 +211,8 @@ def print_cable(joints):
 #нахождение упоров движителей НПА
 #для определенного положения (X,Y,Z)
 #делается путем минимизации функционала
-def calculate_forces(vx,Fxmax,Fymax,Fzmax,x0,y0,z0):
+def calculate_forces(vx,Fxmax,Fymax,Fzmax,x0,y0,z0,segment_len = 5.0,\
+                     segment_count = 20):
     #минимизируемый функционал
     #входные параметры - упоры движителей аппарата
     #выходной - квадрат дистанции от заданной точки
@@ -222,38 +223,73 @@ def calculate_forces(vx,Fxmax,Fymax,Fzmax,x0,y0,z0):
                    Fx = f[0], \
                    Fy = f[1], \
                    Fz = f[2], \
-                   segment_len = 5.0)
+                   segment_len = segment_len, \
+                   segment_count = segment_count)
         joints = cable(inp)['joints']
         return (joints[-1].item(0,0)-x0)**2 + \
                (joints[-1].item(1,0)-y0)**2 + \
                (joints[-1].item(2,0)-z0)**2
     #осуществляем минимизацию
-    #методом BFGS
-    #http://www.scipy-lectures.org/advanced/mathematical_optimization/
+    #методом Бройдена-Флетчера-Гольдфарба-Шанно #http://www.scipy-lectures.org/advanced/mathematical_optimization/
     #у нас нет якобиана и градиента
     max_force = math.sqrt(Fxmax**2 + Fymax**2 + Fzmax**2)
     res = optimize.minimize( \
         force_func, [0,0,0], method = "BFGS")
-    print(res)
-    #рисуем получившийся кабель
-    inp = dict(vx = vx, \
+    if (res.success == True):
+        #рисуем получившийся кабель
+        inp = dict(vx = vx, \
                    vy = 0, \
                    vz = 0, \
                    Fx = res.x[0], \
                    Fy = res.x[1], \
                    Fz = res.x[2], \
-                   segment_len = 5.0)
-    print_cable(cable(inp)['joints'])
+                   segment_len = 5.0, \
+                   segment_count = 20)
+        #возвращаем рассчитанную конфигурацию кабеля
+        return cable(inp)
+    else:
+        return None
+
+#нахождение рабочей зоны аппарата
+def calculate_workzone(vx,Fxmax,Fymax,Fzmax,segment_len,segment_count):
+    xs = []
+    ys = []
+    radius = []
+    n = 100
+    #длина кабеля
+    cable_len = segment_len * segment_count;
+    #делаем полукруг
+    phi = np.linspace(math.pi,2*math.pi,n)
+    for x in phi:
+        radius.append(cable_len)
+        xs.append(math.cos(x) * cable_len)
+        ys.append(math.sin(x) * cable_len)
+    #теперь просчитываем силы на ДРК на каждой точке полукруга
+    #если силы слишком велики, приближаем точку к носителю
+    for i in range(0,n):
+            res = calculate_forces(vx,Fxmax,Fymax,Fzmax,xs[i],ys[i],0, \
+                                   segment_len,segment_count)
+            #не удалось найти такие силы, чтобы удержать аппарат в точке
+            if (res is None):
+                #делаем поиск путем деления пополам
+                left = 0
+                right = cable_len
+                while (True):
+                    radius[i] = (left+right)/2
+                    print("phi = ",i," radius = ", radius[i], \
+                          " left = ",left," right = ",right)
+                    xs[i] = math.cos(phi[i]) * radius[i]
+                    ys[i] = math.sin(phi[i]) * radius[i]
+                    res = calculate_forces(vx,Fxmax,Fymax,Fzmax,xs[i],ys[i],0, \
+                                       segment_len,segment_count)
+                    if (res is None):
+                        right = (left + right)/2
+                    else:
+                        left = (left + right)/2
+                    if (right - left < 0.1):
+                        break
+        
+    plt.plot(xs,ys,'k')
     plt.show()
 
-#inp = dict(vx=1.0,vy=0,vz=0,Fx=300,Fy=-1000,Fz=0,segment_len=5.0)
-#for x in range(0,12):
-    #inp['vx'] = x*0.25
-    #print_cable(cable(inp)['joints'])
-
-
-#vx = 1.0
-#joints = cable(vx, 0, 100, 0, 0)
-#print_cable(joints)
-
-#plt.show()
+calculate_workzone(1,10,10,10,1,10)
