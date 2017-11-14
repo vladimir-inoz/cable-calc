@@ -21,7 +21,7 @@ Cnorm = 1.0
 Ctau = 1.0
 
 #число сегментов
-nSegments = 10
+nSegments = 20
 
 def cable(settings):
     #результат
@@ -98,13 +98,15 @@ def cable(settings):
         Cphix = C[i-1].item(0,0)
         Cphiy = C[i-1].item(1,0)
         Cphiz = C[i-1].item(2,0)
+
         Fprev = F[i-1]
         Gprev = np.matrix([[0],[0],[0]])
-        
+
+        #гидродинамические силы на звене кабеля
         Rnx = Cnorm * len * Dk * ro * \
               (vx * math.sqrt(1-Cphix ** 2)) ** 2 / 2
         Rnz = Cnorm * len * Dk * ro * \
-              (vx * math.sqrt(1-Cphiz ** 2)) ** 2 / 2
+              (vz * math.sqrt(1-Cphiz ** 2)) ** 2 / 2
         Rtaux = Ctau * Cnorm * len * Dk * math.pi * \
                 np.sign(Cphix)*(vx*Cphix)**2/2
         Rtauz = Ctau * Cnorm * len * Dk * math.pi * \
@@ -112,26 +114,42 @@ def cable(settings):
 
         Rprev = np.matrix([[Rnx],[Rtaux],[Rnz],[Rtauz]])
 
-        Cyz = -math.sqrt(Cphix ** 2 + Cphiy ** 2 + Cphiz ** 2)
-        Cyx = math.sqrt(Cphix ** 2 + Cphiy ** 2 + Cphiz ** 2)
-        Cxy = -Cphix * Cphiy / Cyz
-        Cxz = -Cphix * Cphiz / Cyz
-        Czx = Cphiz * Cphix / Cyx
-        Czy = Cphiz * Cphiy / Cyx
+        Cyz = -math.sqrt(Cphiy ** 2 + Cphiz ** 2)
+        Cyx = math.sqrt(Cphix ** 2 + Cphiy ** 2)
+        
+        if (math.fabs(Cyz) > 1e-3):
+            Cxy = -Cphix * Cphiy / Cyz
+            Cxz = -Cphix * Cphiz / Cyz
+        else:
+            Cxy = 0
+            Cxz = 0
+        if (math.fabs(Cyx) > 1e-3):
+            Czx = Cphiz * Cphix / Cyx
+            Czy = Cphiz * Cphiy / Cyx
+        else:
+            Czx = 0
+            Cxz = 0
 
         Aprev = np.matrix([
             [Cyz, -Cphix, Czx, -Cphix],
             [Cxy, -Cphiy, Czy, -Cphiy],
             [Cxz, -Cphiz, -Cyx, -Cphiz]
             ])
+
+        #гидродинамические силы на i-1 звено
+        Fgydro = Aprev * Rprev
+        print(Fgydro.item(2,0))
         
         #результирующая сила на i-м шарнире
-        Fi = Fprev + Aprev * Rprev + Gprev + Ft
+        Fi = Fprev + Fgydro + Gprev + Ft
         #ориентация звена
         Ci = calcOrientCos(Fi)
         #добавляем значения в массив
         F.append(Fi)
         C.append(Ci)
+
+    result['forces'] = F
+    result['orient'] = C
 
     #считаем силу на лебедке корабля
     Fsum=[0,0,0]
@@ -165,14 +183,32 @@ def cable(settings):
 
 #рисование кабеля на графике
 def print_cable(joints):
+    #plt.figure(1)
+    #plt.subplot(211)
     xs = []
     ys = []
+    zs = []
     for i in joints:
         xs.append(i.item(0,0))
         ys.append(i.item(1,0))
+        zs.append(i.item(2,0))
+
+    axes = plt.gca()
+    axes.set_xlim([-100,50])
+    axes.set_ylim([-100,5])
+        
     plt.plot(xs,ys,'bo')
     plt.plot(xs,ys,'k')
 
+    #plt.subplot(212)
+
+    #axes = plt.gca()
+    #axes.set_xlim([-100,50])
+    #axes.set_ylim([-100,5])
+    
+    #plt.plot(xs,zs,'bo')
+    #plt.plot(xs,zs,'k')
+    
 #нахождение упоров движителей НПА
 #для определенного положения (X,Y,Z)
 #делается путем минимизации функционала
@@ -196,14 +232,13 @@ def calculate_forces(Vx,Fxmax,Fymax,Fzmax,x0,y0,z0):
     print(res)
     #рисуем получившийся кабель
 
-axes = plt.gca()
-axes.set_xlim([-100,50])
-axes.set_ylim([-100,5])
-
-inp = dict(vx=3.0,vy=0,vz=0,Fx=200,Fy=-200,Fz=0,segment_len=5.0)
+inp = dict(vx=1.0,vy=0,vz=0,Fx=300,Fy=-1000,Fz=0,segment_len=5.0)
 for x in range(0,12):
     inp['vx'] = x*0.25
     print_cable(cable(inp)['joints'])
+#cable(inp)
+#print_cable(cable(inp)['joints'])
+
 
 #vx = 1.0
 #joints = cable(vx, 0, 100, 0, 0)
