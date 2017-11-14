@@ -138,7 +138,6 @@ def cable(settings):
 
         #гидродинамические силы на i-1 звено
         Fgydro = Aprev * Rprev
-        print(Fgydro.item(2,0))
         
         #результирующая сила на i-м шарнире
         Fi = Fprev + Fgydro + Gprev + Ft
@@ -212,13 +211,19 @@ def print_cable(joints):
 #нахождение упоров движителей НПА
 #для определенного положения (X,Y,Z)
 #делается путем минимизации функционала
-def calculate_forces(Vx,Fxmax,Fymax,Fzmax,x0,y0,z0):
+def calculate_forces(vx,Fxmax,Fymax,Fzmax,x0,y0,z0):
     #минимизируемый функционал
     #входные параметры - упоры движителей аппарата
     #выходной - квадрат дистанции от заданной точки
     def force_func(f):
-        joints = cable(Vx, 0, f[0], f[1], f[2])
-        print(joints)
+        inp = dict(vx = vx, \
+                   vy = 0, \
+                   vz = 0, \
+                   Fx = f[0], \
+                   Fy = f[1], \
+                   Fz = f[2], \
+                   segment_len = 5.0)
+        joints = cable(inp)['joints']
         return (joints[-1].item(0,0)-x0)**2 + \
                (joints[-1].item(1,0)-y0)**2 + \
                (joints[-1].item(2,0)-z0)**2
@@ -231,17 +236,24 @@ def calculate_forces(Vx,Fxmax,Fymax,Fzmax,x0,y0,z0):
         force_func, [0,0,0], method = "BFGS")
     print(res)
     #рисуем получившийся кабель
-
-inp = dict(vx=1.0,vy=0,vz=0,Fx=300,Fy=-1000,Fz=0,segment_len=5.0)
-for x in range(0,12):
-    inp['vx'] = x*0.25
+    inp = dict(vx = vx, \
+                   vy = 0, \
+                   vz = 0, \
+                   Fx = res.x[0], \
+                   Fy = res.x[1], \
+                   Fz = res.x[2], \
+                   segment_len = 5.0)
     print_cable(cable(inp)['joints'])
-#cable(inp)
-#print_cable(cable(inp)['joints'])
+    plt.show()
+
+#inp = dict(vx=1.0,vy=0,vz=0,Fx=300,Fy=-1000,Fz=0,segment_len=5.0)
+#for x in range(0,12):
+    #inp['vx'] = x*0.25
+    #print_cable(cable(inp)['joints'])
 
 
 #vx = 1.0
 #joints = cable(vx, 0, 100, 0, 0)
 #print_cable(joints)
 
-plt.show()
+#plt.show()
