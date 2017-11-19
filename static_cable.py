@@ -2,7 +2,9 @@ import numpy as np
 import math
 import pylab
 import matplotlib.pyplot as plt
+from math import pi
 from scipy import optimize
+import matplotlib.cm as cm
 
 #расчет направляющих косинусов звена по силе
 def calcOrientCos(F):
@@ -17,8 +19,8 @@ def calcOrientCos(F):
 Dk = 0.05
 
 #нормальный и касательный гидродинамические коэффициенты кабеля
-Cnorm = 1.0
-Ctau = 1.0
+Cnorm = 1.35
+Ctau = 0.47
 
 def cable(settings):
     #результат
@@ -196,9 +198,9 @@ def print_cable(joints):
         ys.append(i.item(1,0))
         zs.append(i.item(2,0))
 
-    axes = plt.gca()
-    axes.set_xlim([-100,50])
-    axes.set_ylim([-100,5])
+    #axes = plt.gca()
+    #axes.set_xlim([-100,50])
+    #axes.set_ylim([-100,5])
         
     plt.plot(xs,ys,'bo')
     plt.plot(xs,ys,'k')
@@ -258,16 +260,8 @@ def calculate_forces(vx,Fxmax,Fymax,Fzmax,x0,y0,z0,segment_len = 5.0,\
 def calculate_workzone(vx,Fxmax,Fymax,Fzmax,segment_len,segment_count):
     xs = []
     ys = []
-    radius = []
-    n = 100
-    #длина кабеля
-    cable_len = segment_len * segment_count;
-    #делаем все возможные упоры движителей и считаем координаты ТПА
-    alpha = np.linspace(0,2*math.pi,360*4)
-    Fmax = math.sqrt(Fxmax**2 + Fymax**2 + Fzmax**2)
-    for a in alpha:
-        fx = Fmax * math.sin(a)
-        fy = Fmax * math.cos(a)
+    
+    def getxy(fx,fy):
         inp = dict(vx = vx, \
                 vy = 0, \
                 vz = 0, \
@@ -280,11 +274,33 @@ def calculate_workzone(vx,Fxmax,Fymax,Fzmax,segment_len,segment_count):
         npa_y = cable(inp)['joints'][-1].item(1,0)
         xs.append(npa_x)
         ys.append(npa_y)
+    
+    n = 100
+    #длина кабеля
+    cable_len = segment_len * segment_count;
+    #делаем все возможные упоры движителей и считаем координаты ТПА
+    Fmax = math.sqrt(Fxmax**2 + Fymax**2 + Fzmax**2)
+    for x in np.linspace(-Fxmax,Fxmax,100):
+        for y in np.linspace(-Fymax,Fymax,100):
+            getxy(x,y)
         
-    plt.plot(xs,ys)
+    plt.plot(xs,ys,'go')
 
-calculate_workzone(1.9,500,800,800,1,10)
-calculate_workzone(1.8,500,800,800,1,10)
-calculate_workzone(1.7,500,800,800,1,10)
-calculate_workzone(1.6,500,800,800,1,10)
+#calculate_workzone(1.95,800,800,800,30,10)
+#calculate_workzone(1.8,1500,1200,800,30,10)
+#calculate_workzone(1.7,800,800,800,30,10)
+#calculate_workzone(1.6,800,800,800,30,10)
+#res = calculate_forces(0.5,5000,5000,5000,0,-110,0,5.0,40)
+#print_cable(res['joints'])
+inp = dict(vx = 0.5, \
+                vy = 0, \
+                vz = 0, \
+                Fx = 223.1, \
+                Fy = -20.5, \
+                Fz = 0, \
+                segment_len = 5.0, \
+                segment_count = 40)
+print_cable(cable(inp)['joints'])
+
+
 plt.show()
