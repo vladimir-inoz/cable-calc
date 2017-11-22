@@ -285,22 +285,3 @@ def calculate_workzone(vx,Fxmax,Fymax,Fzmax,segment_len,segment_count):
             getxy(x,y)
         
     plt.plot(xs,ys,'go')
-
-#calculate_workzone(1.95,800,800,800,30,10)
-#calculate_workzone(1.8,1500,1200,800,30,10)
-#calculate_workzone(1.7,800,800,800,30,10)
-#calculate_workzone(1.6,800,800,800,30,10)
-#res = calculate_forces(0.5,5000,5000,5000,0,-110,0,5.0,40)
-#print_cable(res['joints'])
-inp = dict(vx = 0.5, \
-                vy = 0, \
-                vz = 0, \
-                Fx = 223.1, \
-                Fy = -20.5, \
-                Fz = 0, \
-                segment_len = 5.0, \
-                segment_count = 40)
-print_cable(cable(inp)['joints'])
-
-
-plt.show()
