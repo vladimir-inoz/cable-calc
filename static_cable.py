@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from math import pi
 import pylab
 import matplotlib.pyplot as plt
 from math import pi
@@ -15,12 +16,11 @@ def calcOrientCos(F):
 
 #расчет параметров кабеля
 
-#диаметр кабеля (метры)
-Dk = 0.05
-
 #нормальный и касательный гидродинамические коэффициенты кабеля
-Cnorm = 1.35
-Ctau = 0.47
+Cnorm = 1.2
+Ctau = 0.02
+#Cnorm = 0.2
+#Ctau = 0.2
 
 def cable(settings):
     #результат
@@ -30,22 +30,24 @@ def cable(settings):
     len = settings['segment_len']
     #число сегментов
     nseg = settings['segment_count']
+    #диаметр кабеля
+    Dk = settings['Dk']
     
     #курсовой угол корабля (радианы)
     psi = 0
 
     #коэффициенты гидродинамические для ТПА
     #принимаем ТПА как кубик
-    Cxa = 1.05
-    Cza = 1.05
+    Cxa = settings['Cxa']
+    Cza = settings['Cza']
 
     #плотность воды (кг\м3)
-    ro = 1000.0
+    ro = 1025.0
 
     #характерная площадь НПА
     #примем, что аппарат 1x1x1м
     #характерная площадь - 2/3 от объема
-    Sa = 0.666
+    Sa = settings['Sa']
 
     #Скорость движения ТПС отностиельно воды
     vx = settings['vx']
@@ -93,6 +95,9 @@ def cable(settings):
 
     G=[]
 
+    #плавучесть сегмент кабеля
+    cable_mass = settings['cable_mass']
+
     Ft= np.matrix([[0],[0],[0]])
 
     #пересчитываем силы для всех сегментов
@@ -102,7 +107,8 @@ def cable(settings):
         Cphiz = C[i-1].item(2,0)
 
         Fprev = F[i-1]
-        Gprev = np.matrix([[0],[0],[0]])
+        Gk = 9.81 * (cable_mass - ro * pi * Dk * Dk / 4)
+        Gprev = np.matrix([[0],[-Gk * len],[0]])
 
         #гидродинамические силы на звене кабеля
         Rnx = Cnorm * len * Dk * ro * \
@@ -168,11 +174,7 @@ def cable(settings):
     #первый шарнир в нулях
     r = [np.matrix([[0],[0],[0]])]
     for i in range(1, nseg):
-        rnew = r[i-1] + len * C[i]
-        #кабель не может подняться выше уровня воды
-        #по координате Y
-        if rnew.item(1,0) > 0:
-            rnew[[1],[0]] = 0
+        rnew = r[i-1] - len * C[i]
         r.append(rnew)
 
     result['joints'] = r
@@ -181,29 +183,26 @@ def cable(settings):
     #в системе координат носителя
     rnos=[]
     for point in r:
-        rnos.append(r[-1] - point)
-    result['joints-nos'] = rnos
+        rnosnew = point - r[-1]
+        rnos.append(rnosnew)
+    
+    result['joints_nos'] = rnos
 
     return result
 
 #рисование кабеля на графике
-def print_cable(joints):
-    #plt.figure(1)
-    #plt.subplot(211)
+def print_cable(res):
     xs = []
     ys = []
     zs = []
-    for i in joints:
+    for i in res['joints_nos']:
         xs.append(i.item(0,0))
         ys.append(i.item(1,0))
         zs.append(i.item(2,0))
-
-    #axes = plt.gca()
-    #axes.set_xlim([-100,50])
-    #axes.set_ylim([-100,5])
         
-    plt.plot(xs,ys,'bo')
+    #plt.plot(xs,ys,'bo')
     plt.plot(xs,ys,'k')
+    
 
     #plt.subplot(212)
 
