@@ -11,7 +11,10 @@ import matplotlib.cm as cm
 def calcOrientCos(F):
     #считаем натяжение в шарнире
     T = np.linalg.norm(F)
-    C = F / T
+    if (math.fabs(T) > 1E-5):
+        C = F / T
+    else:
+        C = np.matrix([[0],[0],[0]])
     return C
 
 #расчет параметров кабеля
@@ -19,17 +22,17 @@ def calcOrientCos(F):
 #нормальный и касательный гидродинамические коэффициенты кабеля
 Cnorm = 1.2
 Ctau = 0.02
-#Cnorm = 0.2
-#Ctau = 0.2
 
 def cable(settings):
     #результат
     result = dict()
 
-    #длина сегмента
-    len = settings['segment_len']
+    #длина кабеля
+    len_all = settings['cable_len']
     #число сегментов
     nseg = settings['segment_count']
+    #длина сегмента
+    len = len_all/nseg
     #диаметр кабеля
     Dk = settings['Dk']
     
@@ -66,6 +69,7 @@ def cable(settings):
 
     #силы, действующие на аппарат
     Fxa = ro * Cxa * Sa * Vxa * abs(Vxa) / 2
+    print("Fxa = ",Fxa)
     Fza = ro * Cza * Sa * Vza * abs(Vza) / 2
 
     tR1 = -B * np.matrix([[Fxa],[Fza]])
@@ -125,13 +129,13 @@ def cable(settings):
         Cyz = -math.sqrt(Cphiy ** 2 + Cphiz ** 2)
         Cyx = math.sqrt(Cphix ** 2 + Cphiy ** 2)
         
-        if (math.fabs(Cyz) > 1e-3):
+        if (math.fabs(Cyz) > 1e-5):
             Cxy = -Cphix * Cphiy / Cyz
             Cxz = -Cphix * Cphiz / Cyz
         else:
             Cxy = 0
             Cxz = 0
-        if (math.fabs(Cyx) > 1e-3):
+        if (math.fabs(Cyx) > 1e-5):
             Czx = Cphiz * Cphix / Cyx
             Czy = Cphiz * Cphiy / Cyx
         else:
