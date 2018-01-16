@@ -69,7 +69,7 @@ def cable(settings):
 
     #силы, действующие на аппарат
     Fxa = ro * Cxa * Sa * Vxa * abs(Vxa) / 2
-    print("Fxa = ",Fxa)
+    print('Fxa/v^2 = ',Fxa/Vxa/Vxa)
     Fza = ro * Cza * Sa * Vza * abs(Vza) / 2
 
     tR1 = -B * np.matrix([[Fxa],[Fza]])
@@ -192,10 +192,13 @@ def cable(settings):
     
     result['joints_nos'] = rnos
 
+    #дебажный вывод
+    print('x = ',rnos[0].item(0,0),' y = ',rnos[0].item(1,0))
+
     return result
 
 #рисование кабеля на графике
-def print_cable(res):
+def cplot(res, show = True):
     xs = []
     ys = []
     zs = []
@@ -203,38 +206,36 @@ def print_cable(res):
         xs.append(i.item(0,0))
         ys.append(i.item(1,0))
         zs.append(i.item(2,0))
-        
-    #plt.plot(xs,ys,'bo')
+
+    axes = plt.gca()
+    axes.set_xlim([-385,385])
+    axes.set_ylim([-385,385])
     plt.plot(xs,ys,'k')
-    
+    if show == True:
+        plt.show()
 
-    #plt.subplot(212)
-
-    #axes = plt.gca()
-    #axes.set_xlim([-100,50])
-    #axes.set_ylim([-100,5])
-    
-    #plt.plot(xs,zs,'bo')
-    #plt.plot(xs,zs,'k')
+#расчет кабеля и рисование на графике
+def mplot(inp):
+    cplot(cable(inp))
     
 #нахождение упоров движителей НПА
 #для определенного положения (X,Y,Z)
 #делается путем минимизации функционала
-def calculate_forces(vx,Fxmax,Fymax,Fzmax,x0,y0,z0,segment_len = 5.0,\
-                     segment_count = 20):
+def calculate_forces(settings):
+    x0=settings['x0']
+    y0=settings['y0']
+    z0=settings['z0']
+    Fxmax = settings['Fxmax']
+    Fymax = settings['Fymax']
+    Fzmax = settings['Fzmax']
     #минимизируемый функционал
     #входные параметры - упоры движителей аппарата
     #выходной - квадрат дистанции от заданной точки
     def force_func(f):
-        inp = dict(vx = vx, \
-                   vy = 0, \
-                   vz = 0, \
-                   Fx = f[0], \
-                   Fy = f[1], \
-                   Fz = f[2], \
-                   segment_len = segment_len, \
-                   segment_count = segment_count)
-        joints = cable(inp)['joints']
+        settings['Fx']=f[0]
+        settings['Fy']=f[1]
+        settings['Fz']=f[2]
+        joints = cable(settings)['joints']
         return (joints[-1].item(0,0)-x0)**2 + \
                (joints[-1].item(1,0)-y0)**2 + \
                (joints[-1].item(2,0)-z0)**2
@@ -245,17 +246,12 @@ def calculate_forces(vx,Fxmax,Fymax,Fzmax,x0,y0,z0,segment_len = 5.0,\
     res = optimize.minimize( \
         force_func, [0,0,0], method = "BFGS")
     if (res.success == True):
-        #рисуем получившийся кабель
-        inp = dict(vx = vx, \
-                   vy = 0, \
-                   vz = 0, \
-                   Fx = res.x[0], \
-                   Fy = res.x[1], \
-                   Fz = res.x[2], \
-                   segment_len = 5.0, \
-                   segment_count = 20)
+        out = settings
+        out['Fx']=res.x[0]
+        out['Fy']=res.x[1]
+        out['Fz']=res.x[2]
         #возвращаем рассчитанную конфигурацию кабеля
-        return cable(inp)
+        return cable(out)
     else:
         return None
 
