@@ -17,12 +17,11 @@ def calcOrientCos(F):
         C = np.matrix([[0],[0],[0]])
     return C
 
-#расчет параметров кабеля
-
 #нормальный и касательный гидродинамические коэффициенты кабеля
 Cnorm = 1.2
 Ctau = 0.02
 
+#статический расчет кабеля с аппаратом
 def cable(settings):
     #результат
     result = dict()
@@ -48,7 +47,6 @@ def cable(settings):
     ro = 1025.0
 
     #характерная площадь НПА
-    #примем, что аппарат 1x1x1м
     #характерная площадь - 2/3 от объема
     Sa = settings['Sa']
 
@@ -67,11 +65,11 @@ def cable(settings):
     Vxa = Va.item((0,0))
     Vza = Va.item((1,0))
 
-    #силы, действующие на аппарат
+    #гидродинамические силы, действующие на аппарат
+    #модуль
     Fxa = ro * Cxa * Sa * Vxa * abs(Vxa) / 2
-    print('Fxa/v^2 = ',Fxa/Vxa/Vxa)
     Fza = ro * Cza * Sa * Vza * abs(Vza) / 2
-
+    #вектор
     tR1 = -B * np.matrix([[Fxa],[Fza]])
     R1 = -np.matrix([[tR1.item(0,0)],[0],[tR1.item(1,0)]])
 
@@ -101,8 +99,11 @@ def cable(settings):
 
     #плавучесть сегмент кабеля
     cable_mass = settings['cable_mass']
-
+    #пока промежуточных тел с плавучестью не вводим
     Ft= np.matrix([[0],[0],[0]])
+
+    #плавучесть элемента кабеля длиной 1 метр
+    Gk = 9.81 * (cable_mass - ro * pi * Dk * Dk / 4)
 
     #пересчитываем силы для всех сегментов
     for i in range(1, nseg):
@@ -111,7 +112,6 @@ def cable(settings):
         Cphiz = C[i-1].item(2,0)
 
         Fprev = F[i-1]
-        Gk = 9.81 * (cable_mass - ro * pi * Dk * Dk / 4)
         Gprev = np.matrix([[0],[-Gk * len],[0]])
 
         #гидродинамические силы на звене кабеля
@@ -140,7 +140,7 @@ def cable(settings):
             Czy = Cphiz * Cphiy / Cyx
         else:
             Czx = 0
-            Cxz = 0
+            Czy = 0
 
         Aprev = np.matrix([
             [Cyz, -Cphix, Czx, -Cphix],
@@ -162,16 +162,11 @@ def cable(settings):
     result['forces'] = F
     result['orient'] = C
 
-    #считаем силу на лебедке корабля
-    Fsum=[0,0,0]
-    for force in F:
-        Fsum[0]+=force.item(0,0) ** 2
-        Fsum[1]+=force.item(1,0) ** 2
-        Fsum[2]+=force.item(2,0) ** 2
-    Fsums = np.matrix([[math.sqrt(Fsum[0])],
-                       [math.sqrt(Fsum[1])],
-                       [math.sqrt(Fsum[2])]])
-    result['f_winch'] = Fsums
+    #считаем силу на корневом конце
+    result['F_winch'] = F[-1]
+
+    #считаем силу на ходовом конце
+    result['F_NPA'] = F[0]
 
     #рассчитываем координаты шарниров
     #в системе координат НПА
@@ -210,6 +205,7 @@ def cplot(res, show = True):
     axes = plt.gca()
     axes.set_xlim([-385,385])
     axes.set_ylim([-385,385])
+    plt.grid(True)
     plt.plot(xs,ys,'k')
     if show == True:
         plt.show()
@@ -225,6 +221,8 @@ def calculate_forces(settings):
     x0=settings['x0']
     y0=settings['y0']
     z0=settings['z0']
+    #целевая точка
+    dist_point = np.matrix([[x0],[y0],[z0]])
     Fxmax = settings['Fxmax']
     Fymax = settings['Fymax']
     Fzmax = settings['Fzmax']
@@ -235,10 +233,13 @@ def calculate_forces(settings):
         settings['Fx']=f[0]
         settings['Fy']=f[1]
         settings['Fz']=f[2]
-        joints = cable(settings)['joints']
-        return (joints[-1].item(0,0)-x0)**2 + \
-               (joints[-1].item(1,0)-y0)**2 + \
-               (joints[-1].item(2,0)-z0)**2
+        #print('Fx = ',f[0],' Fy = ',f[1],' Fz = ',f[2])
+        #координаты ходового конца
+        joint = cable(settings)['joints_nos'][0]
+        #расстояние между требуемым местоположением
+        #ходового конца и фактическим
+        dst = np.linalg.norm(joint - dist_point)
+        return dst ** 2
     #осуществляем минимизацию
     #методом Бройдена-Флетчера-Гольдфарба-Шанно #http://www.scipy-lectures.org/advanced/mathematical_optimization/
     #у нас нет якобиана и градиента
