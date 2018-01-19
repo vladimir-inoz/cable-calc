@@ -97,6 +97,8 @@ def tx_ty_npa_series(settings, x, y, v):
     Tx = np.ndarray(shape=(v.size, x.size), dtype=float)
     Ty = np.ndarray(shape=(v.size, x.size), dtype=float)
     Tsum = np.ndarray(shape=(v.size, x.size), dtype=float)
+    niter = x.size * v.size
+    iter = 0
     for i in range(0, v.size):
         for j in range(0, x.size):
             settings['x0'] = x[j]
@@ -110,23 +112,26 @@ def tx_ty_npa_series(settings, x, y, v):
                 Tx[i][j] = Tx_res
                 Ty[i][j] = Ty_res
                 Tsum[i][j] = Tsum_res
+            iter = iter+1
+            percent = iter / niter * 100
+            print("%f%%" % percent)
     f, axarr = plt.subplots(3, sharex=True)
     plt.title('Натяжение кабеля на ходовом конце')
     for i in range(0, v.size):
         axarr[0].plot(x, Tx[i])
-        axarr[0].text(x[-2], Tx[i][-2] + 1, 'v=%2.1f' % v[i])
+        axarr[0].text(x[-2], Tx[i][-2] + 2.0, 'v=%2.1f' % v[i])
     axarr[0].grid(visible=True)
     axarr[0].set_xlabel('x, м')
     axarr[0].set_ylabel('Tx, Н')
     for i in range(0, v.size):
         axarr[1].plot(x, Ty[i])
-        axarr[1].text(x[-2], Ty[i][-2] + 1, 'v=%2.1f' % v[i])
+        axarr[1].text(x[-2], Ty[i][-2] + 2.0, 'v=%2.1f' % v[i])
     axarr[1].grid(visible=True)
     axarr[1].set_xlabel('x, м')
     axarr[1].set_ylabel('Ty, Н')
     for i in range(0, v.size):
         axarr[2].plot(x, Tsum[i])
-        axarr[2].text(x[-2], Tsum[i][-2] + 1, 'v=%2.1f' % v[i])
+        axarr[2].text(x[-2], Tsum[i][-2] + 2.0, 'v=%2.1f' % v[i])
     axarr[2].grid(visible=True)
     axarr[2].set_xlabel('x, м')
     axarr[2].set_ylabel('T, Н')
@@ -134,12 +139,14 @@ def tx_ty_npa_series(settings, x, y, v):
     plt.show()
     return [Tx, Ty, Tsum]
 
+
 # строим графики зависимости Tx,Ty на
 # ходовом конце в зависимости от координаты x
 def tx_ty_anpa_series(settings, x, y):
     Tx = np.zeros(x.size)
     Ty = np.zeros(x.size)
     Tsum = np.zeros(x.size)
+    print('calculating...')
     for i in range(0, x.size):
         settings['x0'] = x[i]
         settings['y0'] = y
@@ -148,9 +155,10 @@ def tx_ty_anpa_series(settings, x, y):
             Tx_res = res['F_winch'].item(0, 0)
             Ty_res = res['F_winch'].item(1, 0)
             Tsum_res = math.sqrt(Tx_res * Tx_res + Ty_res * Ty_res)
-            Tx[i] = Tx_res
-            Ty[i] = Ty_res
-            Tsum[i] = Tsum_res
+            if (math.fabs(Tx_res) < 1E6) and (math.fabs(Ty_res) < 1E6):
+                Tx[i] = Tx_res
+                Ty[i] = Ty_res
+                Tsum[i] = Tsum_res
     f, axarr = plt.subplots(3, sharex=True)
     plt.title('Натяжение кабеля на корневом конце')
     axarr[0].plot(x, Tx)

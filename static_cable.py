@@ -236,7 +236,7 @@ def calculate_forces(settings):
         #расстояние между требуемым местоположением
         #ходового конца и фактическим
         dst = np.linalg.norm(joint - dist_point)
-        print('Fx = ',f[0],' Fy = ',f[1],' Fz = ',f[2],' dst= ',dst)
+        #print('Fx = ',f[0],' Fy = ',f[1],' Fz = ',f[2],' dst= ',dst)
         return dst ** 2
     #осуществляем минимизацию
     #методом Бройдена-Флетчера-Гольдфарба-Шанно #http://www.scipy-lectures.org/advanced/mathematical_optimization/
