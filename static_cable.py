@@ -1,11 +1,8 @@
 import numpy as np
 import math
-from math import pi
-import pylab
 import matplotlib.pyplot as plt
 from math import pi
 from scipy import optimize
-import matplotlib.cm as cm
 
 #расчет направляющих косинусов звена по силе
 def calcOrientCos(F):
@@ -80,7 +77,7 @@ def cable(settings):
                     [settings['Fz']]])
 
     #остаточная плавучесть ТПА
-    G1 = np.matrix([[0],[0],[0]])
+    G1 = np.matrix([[0],[settings['NPA_buoyancy']],[0]])
 
     #массив сил в шарнирах
     F=[]
@@ -163,10 +160,10 @@ def cable(settings):
     result['orient'] = C
 
     #считаем силу на корневом конце
-    result['F_winch'] = F[-1]
+    result['F_winch'] = -F[-1]
 
     #считаем силу на ходовом конце
-    result['F_NPA'] = F[0]
+    result['F_NPA'] = -F[0]
 
     #рассчитываем координаты шарниров
     #в системе координат НПА
@@ -188,7 +185,7 @@ def cable(settings):
     result['joints_nos'] = rnos
 
     #дебажный вывод
-    print('x = ',rnos[0].item(0,0),' y = ',rnos[0].item(1,0))
+    #print('x = ',rnos[0].item(0,0),' y = ',rnos[0].item(1,0))
 
     return result
 
@@ -207,6 +204,7 @@ def cplot(res, show = True):
     axes.set_ylim([-385,385])
     plt.grid(True)
     plt.plot(xs,ys,'k')
+
     if show == True:
         plt.show()
 
@@ -233,12 +231,12 @@ def calculate_forces(settings):
         settings['Fx']=f[0]
         settings['Fy']=f[1]
         settings['Fz']=f[2]
-        #print('Fx = ',f[0],' Fy = ',f[1],' Fz = ',f[2])
         #координаты ходового конца
         joint = cable(settings)['joints_nos'][0]
         #расстояние между требуемым местоположением
         #ходового конца и фактическим
         dst = np.linalg.norm(joint - dist_point)
+        print('Fx = ',f[0],' Fy = ',f[1],' Fz = ',f[2],' dst= ',dst)
         return dst ** 2
     #осуществляем минимизацию
     #методом Бройдена-Флетчера-Гольдфарба-Шанно #http://www.scipy-lectures.org/advanced/mathematical_optimization/
